@@ -1,0 +1,73 @@
+name: ${SONAR_COMPOSE_PROJECT:?Select a source project with run.sh}
+
+services:
+  database:
+    image: postgres:17.11-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_DB: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:?Run the central run.sh with the source repository and init first}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U sonar -d sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+
+  sonarqube:
+    image: sonarqube:26.10.0.133078-community
+    restart: "no"
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://database:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:?Run the central run.sh with the source repository and init first}
+    ports:
+      - "127.0.0.1:${SONAR_PORT:?Select the instance port}:9000"
+    volumes:
+      - data:/opt/sonarqube/data
+      - extensions:/opt/sonarqube/extensions
+      - logs:/opt/sonarqube/logs
+      - temp:/opt/sonarqube/temp
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc: 8192
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://localhost:9000/api/system/status | grep -q ''"status":"UP"''']
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 30
+    mem_limit: 4g
+
+  scanner:
+    image: sonarsource/sonar-scanner-cli:12.2.0.4256_8.1.0
+    profiles: [scan]
+    restart: "no"
+    user: "${SCANNER_UID:-1000}:${SCANNER_GID:-1000}"
+    working_dir: /workspace
+    environment:
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN:-}
+      SONAR_USER_HOME: /cache
+      SONAR_SCANNER_JAVA_OPTS: -Xmx1536m
+    volumes:
+      - ${SONAR_SOURCE_ROOT:?Select a source repository}:/workspace:ro
+      - ${SONAR_SOURCE_ROOT}/config/sonarqube:/config:ro
+      - ${SONAR_STATE_ROOT:?Select private instance state}/build/analysis:/analysis
+      - ${SONAR_STATE_ROOT}/build/cache:/cache
+    mem_limit: 4g
+
+volumes:
+  database:
+  data:
+  extensions:
+  logs:
+  temp:

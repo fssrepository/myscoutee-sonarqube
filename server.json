@@ -1,0 +1,5 @@
+{
+  "id": "myscoutee",
+  "composeProject": "myscoutee-sonarqube",
+  "port": 9000
+}
