@@ -1,0 +1,9 @@
+{
+  "project": "myscoutee-sonarqube",
+  "type": "source",
+  "depends_on": [],
+  "variables": {
+    "LAB_GITHUB_REPOSITORY": "fssrepository/myscoutee-sonarqube"
+  },
+  "release_notes": "guides/releases/v{version}.md"
+}
